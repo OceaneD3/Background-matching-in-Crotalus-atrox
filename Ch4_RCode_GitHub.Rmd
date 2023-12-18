@@ -1,0 +1,270 @@
+---
+title: "Ch4_RCode_v2"
+author: "Oceane Da Cunha"
+date: "2023-12-18"
+output: html_document
+---
+```{r}
+#Loading the packages
+library(ggplot2)
+library(pavo)
+library(tidyr)
+library(alphashape3d)
+library(patchwork)
+library(lme4)
+library(stargazer)
+library(lmerTest)
+library(dfoptim)
+library(wesanderson)
+library(intervcomp)
+library(ggdist)
+library(gghalves)
+library(ggpubr)
+```
+
+```{r}
+#Fig. 1 and table I: Difference in achromatic JNDs between random/selected for all visual systems.
+#Load the JNDs data
+JND <- read.csv("JND_Field_2JUN23.csv")
+
+#Subset luminance
+JNDlum <- subset (JND, JND_Type == "Luminance")
+
+#RainPlot 
+RainLum <- ggplot(JNDlum, aes(x=factor(Model, level = c("DomesticDog", "Human","Peafowl", "BlueTit")), y=JND_diff,                           fill=Selected_random, color= Selected_random, alpha =0, )) + 
+  ggdist::stat_halfeye(adjust = .8, width = .7, .width = 0, justification = -.2, point_colour = NA, 
+                       position = position_dodge(0.9)) + 
+  geom_boxplot(width = .2, outlier.shape = NA, position = position_dodge(0.9)) + 
+  gghalves::geom_half_point(side = "l", range_scale = .4, alpha = .2, position = position_dodge(0.9)) +
+  scale_fill_manual (values=c("gray27", "gray56")) +
+  scale_color_manual(values=c("gray27", "gray56")) +
+  theme(legend.position="none",  plot.title = element_blank(),axis.title.x = element_blank(),
+        axis.title.y = element_blank()) +
+   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  theme(text = element_text(size = 15)) 
+
+#Statistical analyses
+#Subset for dog
+DogL <- subset(JNDlum, Model == "DomesticDog")
+wilcox.test(DogL$JND_diff ~ DogL$Selected_random, alternative = "two.sided", paired = TRUE)
+#Subset for all visuals systems and repeat
+```
+
+```{r}
+#Fig. 2 and table I: Difference in chromatic JNDs between random/selected for all visual systems.
+
+#Subset color
+JNDC <- subset (JND, JND_Type == "Color")
+
+#Rain cloud plot for JNDs: Fig. 2
+RainCOl <- ggplot(JNDcol, aes(x=factor(Model, level = c("DomesticDog", "Human","Peafowl", "BlueTit")), y=JND_diff,                           fill=Selected_random, color= Selected_random, alpha =0, )) + 
+  ggdist::stat_halfeye(adjust = .8, width = .7, .width = 0, justification = -.2, point_colour = NA, 
+                       position = position_dodge(0.9)) + 
+  geom_boxplot(width = .2, outlier.shape = NA, position = position_dodge(0.9)) + 
+  gghalves::geom_half_point(side = "l", range_scale = .4, alpha = .2, position = position_dodge(0.9)) +
+  scale_fill_manual (values=c("sandybrown", "navajowhite4")) +
+  scale_color_manual(values=c("sandybrown", "navajowhite4")) +
+  theme(legend.position="none",  plot.title = element_blank(),axis.title.x = element_blank(),
+        axis.title.y = element_blank()) +
+   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  theme(text = element_text(size = 15)) +
+  scale_y_continuous(breaks=c(1,3,5,10)) +
+  coord_cartesian(ylim = c(0, 10))
+
+#Statistical analyses
+#Subset for dog
+DogC <- subset(JNDC, Model == "DomesticDog")
+wilcox.test(DogC$JND_diff ~ DogC$Selected_random, alternative = "two.sided", paired = TRUE)
+#Subset for all visuals systems and repeat
+```
+
+```{r}
+#Colorspace overlap using pavo: Table II
+
+#For the dog model: Use euclidian distance between the two colors spaces as it is linear. Index of dissimilarity  smaller distance indicate higher overlap.
+
+dog <- read.csv("DomesticDog_CS.csv")
+row.names(dog) <- dog$Label
+dog <- dog[, -4]
+
+dogSn <- subset(dog, Type == "Snake")
+dogR <- subset(dog, Type == "Random")
+dogSe <- subset(dog, Type == "Selected")
+
+dogCSn <- colspace(dogSn, space = "di", qcatch = "Qi")
+dogCSe <- colspace(dogSe, space = "di", qcatch = "Qi")
+dogCR <- colspace(dogR, dogSe, space = "di", qcatch = "Qi")
+
+#Calculating euclidean distance
+dist1 <- sqrt(sum((dogCSn - dogCSe)^2))
+dist1
+
+dist2 <- sqrt(sum((dogCSn - dogCR)^2))
+dist2
+####################################################################################################################
+#For the human visual model
+human <- read.csv("Human_CS.csv")
+row.names(human) <- human$Label
+human <- human[, -1]
+
+humSn <- subset(human, Type == "Snake")
+humR <- subset(human, Type == "Random")
+humSe <- subset(human, Type == "Selected")
+
+#Between Snake and selected background
+humCSn <- colspace(humSn, space = "tri", qcatch = "Qi")
+humCSe <- colspace(humSe, space = "tri", qcatch = "Qi")
+
+#Calculating the overlap 
+voloverlap(humCSn, humCSe, type = "convex", plot = T)
+
+#Between snake and random background
+humCR <- colspace(humR, space = "tri", qcatch = "Qi")
+plot(humCR)
+
+#Calculating the overlap 
+voloverlap(humCSn, humCR, type = "convex", plot = T)
+###################################################################################################################
+# For the peafowl model
+pea <- read.csv("Peafowl.csv")
+row.names(pea) <- pea$Label
+pea <- pea[, -1]
+
+peaSn <- subset(pea, Type == "Snake")
+peaR <- subset(pea, Type == "Random")
+peaSe <- subset(pea, Type == "Selected")
+
+#Between snake and selected background
+
+peaCSn <- colspace(peaSn, space = "tcs", qcatch = "Qi")
+peaCSe <- colspace(peaSe, space = "tcs", qcatch = "Qi")
+#Calculating the overlap 
+voloverlap(peaCSn, peaCSe, type = "convex", plot = T)
+
+#Between Snake and random background
+peaCR <- colspace(peaR, space = "tcs", qcatch = "Qi")
+#Calculating the overlap 
+voloverlap(peaCSn, peaCR, type = "convex", plot = T)
+################################################################################################################
+#For the bluetit model
+bt <- read.csv("Bluetit.csv")
+row.names(bt) <- bt$Label
+bt <- bt[, -1]
+
+btSn <- subset(bt, Type == "Snake")
+btR <- subset(bt, Type == "Random")
+btSe <- subset(bt, Type == "Selected")
+
+#Between snake and selected bckground
+btCSn <- colspace(btSn, space = "tcs", qcatch = "Qi")
+btCSe <- colspace(btSe, space = "tcs", qcatch = "Qi")
+#Calculating the overlap 
+voloverlap(btCSn, btCSe, type = "convex", plot = T)
+
+#Between snake and random background
+btCR <- colspace(btR, space = "tcs", qcatch = "Qi")
+#Calculating the overlap 
+voloverlap(btCSn, btCR, type = "convex", plot = T)
+```
+
+```{r}
+#Pattern analysis: Fig. 3
+Pattern <- read.csv("PatternED.csv")
+
+#Graphic visualization
+PG <- ggplot(Pattern, aes(x=factor(Model, level = c("Dog", "Human","Peafowl", "BlueTit")), y=pattern_energy_diff,                           fill=Background, color= Background, alpha =0.1, )) +  
+  geom_boxplot(lwd=1, outlier.shape = NA) + 
+  scale_fill_manual (values=c("rosybrown4", "peachpuff3")) +
+  scale_color_manual(values=c("rosybrown4", "peachpuff3")) +
+  theme(legend.position="none",  plot.title = element_blank(),axis.title.x = element_blank(),
+        axis.title.y = element_blank()) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  theme(text = element_text(size = 20)) +
+  coord_cartesian(ylim = c(0, 0.3))
+
+#For domestic dog
+#Subset the data
+PDog <- subset(Pattern, Model == "Dog")
+#Stats
+wilcox.test(PDog$pattern_energy_diff ~ PDog$Background, alternative = "two.sided", paired = TRUE)
+#Repeat for all visual systems
+```
+
+```{r}
+#Effect of temperature on hue and luminance: Table III
+Temp <- read.csv("BlueTit_Hue_Tb_WNA_wide2.csv")
+
+#For luminance
+LMLum <- lmer(LogLumS ~ LogLumSe + LogLumR + Tb + Sky + Ground + (1|Snake_ID), data = Temp)
+summary(LMLum)
+shapiro.test(residuals(LMLum))
+#Residuals were not normal so I log-transformed the data. The only significant variables is the selected background.
+
+#For hue
+LMHue <- lmer(HueS ~ HueBSe + HueBR + Tb + Sky + Ground + (1|Snake_ID), data = Temp)
+shapiro.test(residuals(LMHue))
+summary(LMHue)
+#Here, the residuals were already normal so no need for log transformation. Only selected habitat has a significant effect on snake hue. 
+
+```
+
+```{r}
+#Supplementary results: linear regression with temperature (Fig.2)
+#Luminance
+ggplot(Temp,aes(Tb, LogLumS)) +
+  geom_point() +
+  geom_smooth(method='lm') +
+  stat_cor(label.y = -0.2) + 
+          theme(legend.position="none",  plot.title = element_blank(),axis.title.x = element_blank(),
+          axis.title.y = element_text(color="Black", size=12), axis.text.x = element_text(angle = 45,vjust =                       0.5, hjust=0.5)) +
+          theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+          theme(text = element_text(size = 15)) 
+#########################################################################################################################
+#Hue
+ggplot(Temp,aes(Tb, HueS)) +
+  geom_point() +
+  geom_smooth(method='lm') +
+  stat_cor(label.y = 1.5) + 
+  theme(legend.position="none",  plot.title = element_blank(),axis.title.x = element_blank(),
+  axis.title.y = element_text(color="Black", size=12), axis.text.x = element_text(angle = 45,vjust =                       0.5, hjust=0.5)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+  theme(text = element_text(size = 15)) 
+```
+
+```{r}
+#Supplementary results: Individual variations of snakes (Fig.3)
+# For luminance
+LUMIND <- ggplot(Temp, aes(x=Snake_ID, y=LumS, fill=Snake_ID, color= Snake_ID)) +  
+          geom_point(shape=16, size=2) + 
+          scale_fill_grey() +
+          scale_color_grey() +
+          ylab("Luminance") +
+          theme(legend.position="none",  plot.title = element_blank(),axis.title.x = element_blank(),
+          axis.title.y = element_text(color="Black", size=12), axis.text.x = element_text(angle = 45,vjust =           0.5, hjust=0.5)) +
+          theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+           theme(text = element_text(size = 15)) 
+
+LUMIND
+####################################################################################################################
+#For color
+HueIND <- ggplot(Temp, aes(x=Snake_ID, y=HueS, fill=Snake_ID, color= Snake_ID)) +  
+          geom_point(shape=16, size=2) + 
+          scale_fill_manual(values = wes_palette("FantasticFox1", n = 14, type = "continuous")) +
+          scale_color_manual(values = wes_palette("FantasticFox1", n = 14, type = "continuous")) +
+          ylab("Hue") +
+          theme(legend.position="none",  plot.title = element_blank(),axis.title.x = element_blank(),
+          axis.title.y = element_text(color="Black", size=12), axis.text.x = element_text(angle = 45,vjust =           0.5, hjust=0.5)) +
+          theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+          theme(text = element_text(size = 15)) 
+```
+
+
+
+
